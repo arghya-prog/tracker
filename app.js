@@ -117,9 +117,17 @@ $('#signout').addEventListener('click',()=>signOut(auth));
 $$('.nav-tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 
 const authForm = document.querySelector('#auth-form');
+const authButton = authForm?.querySelector('button[type="submit"]');
 
+// Handle both normal form submission (including Enter) and direct button clicks.
 if (authForm) {
   authForm.addEventListener('submit', authSubmit);
+}
+if (authButton) {
+  authButton.addEventListener('click', event => {
+    event.preventDefault();
+    authSubmit(event);
+  });
 }
 
 if(configured){app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);onAuthStateChanged(auth,user=>{if(user)loadUser(user);else{if(unsubscribe){unsubscribe();unsubscribe=null;}currentUser=null;profile={};$('#auth').hidden=false;$('#dashboard').hidden=true;}});}else{message('#auth-msg','Setup needed: edit firebase-config.js and follow SETUP.md.');}
