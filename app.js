@@ -116,5 +116,11 @@ $('#copy-code').addEventListener('click',async()=>{try{await navigator.clipboard
 $('#signout').addEventListener('click',()=>signOut(auth));
 $$('.nav-tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 
+const authForm = document.querySelector('#auth-form');
+
+if (authForm) {
+  authForm.addEventListener('submit', authSubmit);
+}
+
 if(configured){app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);onAuthStateChanged(auth,user=>{if(user)loadUser(user);else{if(unsubscribe){unsubscribe();unsubscribe=null;}currentUser=null;profile={};$('#auth').hidden=false;$('#dashboard').hidden=true;}});}else{message('#auth-msg','Setup needed: edit firebase-config.js and follow SETUP.md.');}
 ensurePomo();renderPomoSettings();resolvePomo();if(ticking)clearInterval(ticking);ticking=setInterval(()=>{if(pomo?.running){if(pomo.endsAt<=Date.now())resolvePomo();else renderPomo();}},500);document.addEventListener('visibilitychange',()=>{if(!document.hidden)resolvePomo();});window.addEventListener('focus',()=>resolvePomo());window.addEventListener('pageshow',()=>resolvePomo());
