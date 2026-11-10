@@ -35,7 +35,34 @@ function switchTab(name){ $$('.nav-tab').forEach(b=>b.classList.toggle('active',
 function renderAll(){ renderNotes(); renderTodos(); renderLists(); renderPomoSettings(); renderStats(); renderCalendar(); renderStudyLogs(); renderEvents(); renderBuddies(); $('#my-code').textContent=profile.inviteCode||'—'; $('#goal-input').value=profile.studyGoal||4; }
 
 // Notes. Images are resized before storing to keep the Firestore profile small.
-async function imageToDataURL(file){ if(!file) return null; if(!file.type.startsWith('image/')) throw new Error('Choose an image file.'); const img=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=r.result;};r.onerror=reject;r.readAsDataURL(file);}); const scale=Math.min(1,500/img.width); const c=document.createElement('canvas'); c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale); c.getContext('2d').drawImage(img,0,0,c.width,c.height); return c.toDataURL('image/jpeg',0.4); }
+async function imageToDataURL(file){
+  if(!file) return null;
+  if(!file.type.startsWith('image/')) throw new Error('Choose an image file.');
+  const img=await new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=r.result;};
+    r.onerror=reject;
+    r.readAsDataURL(file);
+  });
+  // Keep screenshots readable while leaving room under Firestore's 1 MiB document limit.
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d');
+  let scale=Math.min(1,1600/img.width);
+  let quality=0.84;
+  let data='';
+  for(const attempt of [0,1,2,3,4,5]){
+    canvas.width=Math.max(1,Math.round(img.width*scale));
+    canvas.height=Math.max(1,Math.round(img.height*scale));
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    data=canvas.toDataURL('image/jpeg',quality);
+    if(data.length<=650000) return data;
+    if(attempt<2) quality-=0.08;
+    else { scale*=0.85; quality=0.72; }
+  }
+  if(data.length>750000) throw new Error('This image is too large to sync safely. Try a smaller screenshot.');
+  return data;
+}
 $('#note-form').addEventListener('submit',async e=>{e.preventDefault(); try { const title=$('#note-title').value.trim(),text=$('#note-text').value.trim(),url=$('#note-url').value.trim(),file=$('#note-image').files[0]; const shot=await imageToDataURL(file); if(!title&&!text&&!url&&!shot){toast('Write something or attach an image first.');return;} const note={id:uid(),title,text,url,shot,created:Date.now()}; await saveProfile({notes:[note,...notes()]}); e.target.reset(); renderNotes(); toast('Note saved and synced'); } catch(err){toast(err.message||'Could not save note');} });
 $('#note-search').addEventListener('input',renderNotes);
 function renderNotes(){ const host=$('#notes-list'); if(!host)return; host.replaceChildren(); const q=($('#note-search')?.value||'').trim().toLowerCase(); const shown=notes().filter(n=>`${n.title||''} ${n.text||''} ${n.url||''}`.toLowerCase().includes(q)).sort((a,b)=>(b.created||b.createdAt||0)-(a.created||a.createdAt||0)); if(!shown.length){host.innerHTML='<p class="empty">No matching notes yet.</p>';return;} shown.forEach(n=>{const card=document.createElement('article');card.className='item-card';const title=document.createElement('strong');title.textContent=n.title||'Untitled note';const body=document.createElement('p');body.textContent=n.text||'';card.append(title);if(n.text)card.append(body);if(n.url){const a=document.createElement('a');a.href=n.url;a.target='_blank';a.rel='noopener';a.textContent=n.pageTitle||n.url;card.append(a);}if(n.shot){const im=document.createElement('img');im.className='note-image';im.src=n.shot;im.alt='Note attachment';card.append(im);}card.append(actionButton('Delete',async()=>{await saveProfile({notes:notes().filter(x=>x.id!==n.id)});renderNotes();}));host.append(card);}); }
